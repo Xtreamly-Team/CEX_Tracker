@@ -124,7 +124,7 @@ async def main():
             try:
                 current_trades_raw = await exchange.watch_trades_for_symbols(symbols)
                 current_trades = list(map(lambda t: Trade(
-                    t['symbol'].split(':')[0],
+                    t['symbol'].split(':')[0].replace('/', '-'),
                     t['timestamp'],
                     round(t['amount'] * t['price'], 2),
                     t['price'],
@@ -153,13 +153,12 @@ async def main():
             while True:
                 await asyncio.sleep(min_save_step / 10)
                 batch_size = trades_queue.qsize()
-                print(batch_size)
                 if batch_size >= min_save_step:
                     batch: List[Trade] = []
                     while not trades_queue.empty():
                         batch.append(await trades_queue.get())
                     # This should return close to 0
-                    print(trades_queue.qsize())
+                    print('Batch size to write', len(batch))
                     
                     send_trades_to_db_sqs(db_queue_url, db_collection, batch)
                     # write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
