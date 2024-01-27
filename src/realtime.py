@@ -10,12 +10,16 @@ from models import OHLCVC, Orderbook, Trade
 from utils import write_ohlcvs_to_csv, write_orderbooks_to_csv, write_orderbooks_to_csv_with_panda, write_trades_to_csv
 
 from copy import copy, deepcopy
+from dotenv import dotenv_values
+
+config = dotenv_values('./src/.env')
+print(config)
 
 async def main():
 
     exchange = ccxt.binance({
-        'apiKey': 'nxzLrvdf22SWpN2oydMUGXHXMNjOkeBbxHXI3lkyBF9FoyrqCByx6gewqCtEhd0s',
-        'secret': 'ItHZgtXWeXJibop5sPTqKA2BygFZkTQLcCga4z8KevZtEprrHaD1jQwov6HwQDdM',
+        'apiKey': config['BINANCE_API_KEY'],
+        'secret': config['BINANCE_API_SECRET'],
         'options': {
             'defaultType': 'spot',
             'tradesLimit': 10000,
@@ -203,7 +207,6 @@ async def main():
         run_symbols = [eth, btc]
         await gather(
             order_book_loop(run_symbols, 1_000, 200, 10),
-            # trade_loop(1_000_000, 5000)
         )
     except Exception as e:
         print(e)
