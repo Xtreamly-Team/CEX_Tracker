@@ -14,7 +14,11 @@ from dotenv import dotenv_values
 import boto3
 
 config = dotenv_values('./src/.env')
-sqs = boto3.client('sqs', region_name=config['AWS_REGION'])
+sqs = boto3.client('sqs',
+        region_name=config['AWS_REGION'],
+         aws_access_key_id=config['AWS_KEY'],
+         aws_secret_access_key=config['AWS_SECRET']
+        )
 
 def table(values):
     first = values[0]
