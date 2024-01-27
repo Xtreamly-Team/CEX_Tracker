@@ -142,7 +142,7 @@ async def main():
         return trades
 
 
-    async def trade_loop(tick_num: int, min_save_step=1000):
+    async def trade_loop(symbols: List[str], tick_num: int, min_save_step=1000):
         trades_queue = asyncio.Queue()
         async def get_trades():
             await watch_trades(trades_queue, symbols, tick_num)
@@ -160,7 +160,7 @@ async def main():
                     # This should return close to 0
                     print(trades_queue.qsize())
                     
-                    write_trades_to_csv(f'./data/trades/{"-".join(symbolQuotes)}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
+                    write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
                     total_got += batch_size
 
                 if total_got >= tick_num:
