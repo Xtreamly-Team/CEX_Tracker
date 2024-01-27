@@ -4,15 +4,17 @@ from typing import List
 import ccxt.pro as ccxt
 
 from asyncio import run, gather, sleep
-from pprint import pprint
 
 from models import OHLCVC, Orderbook, Trade
-from utils import write_ohlcvs_to_csv, write_orderbooks_to_csv, write_orderbooks_to_csv_with_panda, write_trades_to_csv
+from utils import send_trades_to_db_sqs, write_ohlcvs_to_csv, write_orderbooks_to_csv, write_orderbooks_to_csv_with_panda, write_trades_to_csv
 
 from copy import copy, deepcopy
 from dotenv import dotenv_values
 
+
 config = dotenv_values('./src/.env')
+db_queue_url = config['SQS_URL']
+db_collection = config['DB_COLLECTION']
 
 async def main():
 
@@ -159,7 +161,8 @@ async def main():
                     # This should return close to 0
                     print(trades_queue.qsize())
                     
-                    write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
+                    send_trades_to_db_sqs(db_queue_url, db_collection, batch)
+                    # write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
                     total_got += batch_size
 
                 if total_got >= tick_num:
@@ -205,7 +208,7 @@ async def main():
     try:
         run_symbols = [eth, btc]
         await gather(
-            order_book_loop(run_symbols, 1_000_000, 2000, 10),
+            # order_book_loop(run_symbols, 1_000_000, 2000, 10),
             trade_loop(run_symbols, 1_000_000, 2000),
         )
     except Exception as e:

@@ -1,3 +1,4 @@
+import json
 import tailer
 import io
 from csv import DictWriter
@@ -8,6 +9,10 @@ from models import Orderbook, OHLCVC, Trade
 from dataclasses import asdict
 from sys import argv
 import gc
+
+import boto3
+
+sqs = boto3.client('sqs')
 
 def table(values):
     first = values[0]
@@ -143,6 +148,16 @@ def write_n_rows_csv(file_path: str, rows: int, from_end=False):
     save_path = path.with_stem(f'{base_name}_{rows}{"_end" if from_end else ""}')
     print(save_path)
     df.to_csv(save_path, header=True)
+
+def send_trades_to_db_sqs(db_sqs_url: str, db_collection: str, trades: List[Trade]):
+    database_wrapped = [{'Collection': db_collection, 'jsonDocument': json.dumps(asdict(trade))} for trade in trades ]
+    message = json.dumps(database_wrapped)
+    response = sqs.send_message(
+        QueueUrl=db_sqs_url,
+        MessageBody=message,
+        MessageGroupId=db_collection,
+    )
+    print(response)
 
 
 if __name__ == '__main__':
