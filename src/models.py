@@ -8,6 +8,7 @@ class Trade:
     amount: float
     price: float
     is_buy: bool
+    market: str
 
 @dataclass
 class OHLCVC:

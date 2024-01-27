@@ -18,7 +18,7 @@ db_collection = config['DB_COLLECTION']
 
 async def main():
 
-    exchange = ccxt.binance({
+    spot_exchange = ccxt.binance({
         'apiKey': config['BINANCE_API_KEY'],
         'secret': config['BINANCE_API_SECRET'],
         'options': {
@@ -27,18 +27,29 @@ async def main():
         },
     })
 
+    future_exchange = ccxt.binance({
+        'apiKey': config['BINANCE_API_KEY'],
+        'secret': config['BINANCE_API_SECRET'],
+        'options': {
+            'defaultType': 'future',
+            'tradesLimit': 10000,
+        },
+    })
+
+
     eth = 'ETH/USDT'
     btc = 'BTC/USDT'
 
     symbols = [eth, btc]
+
     def get_symbol_quotes(symbols):
      return [x.split('/')[0] for x in symbols]
 
     async def get_time():
-        return await exchange.fetch_time();
+        return await spot_exchange.fetch_time();
 
     async def get_formatted_time():
-        return exchange.iso8601(exchange.milliseconds())
+        return spot_exchange.iso8601(spot_exchange.milliseconds())
 
     async def get_trades_raw(symbol: str, since: int, until: int):
         last_trade_timestamp = since
@@ -46,7 +57,7 @@ async def main():
 
         while last_trade_timestamp < until:
             each_step = 1000
-            trades = await exchange.fetch_trades(symbol, last_trade_timestamp, each_step, params={'until': until})
+            trades = await spot_exchange.fetch_trades(symbol, last_trade_timestamp, each_step, params={'until': until})
             if len(trades):
                 last_trade_timestamp = trades[len(trades) - 1]['timestamp'] + 1
                 all_trades += trades
@@ -80,11 +91,11 @@ async def main():
             if i > tick_limit:
                 break
             try:
-                order_book = await exchange.watch_order_book_for_symbols(symbols, depth)
+                order_book = await spot_exchange.watch_order_book_for_symbols(symbols, depth)
                 order_books.append(copy(order_book))
             except Exception as e:
                 print(e)
-                await exchange.close()
+                await spot_exchange.close()
 
         return order_books
 
@@ -97,7 +108,7 @@ async def main():
             if i > tick_limit:
                 break
             try:
-                raw_order_book = await exchange.watch_order_book_for_symbols(symbols, depth)
+                raw_order_book = await spot_exchange.watch_order_book_for_symbols(symbols, depth)
 
                 order_book = Orderbook(raw_order_book['symbol'].split(':')[0], raw_order_book['timestamp'],
                                        list(map(lambda o: (o[0], round(o[1] * o[0], 2)), raw_order_book['asks'])),
@@ -113,7 +124,7 @@ async def main():
 
         return order_books
 
-    async def watch_trades(queue: asyncio.Queue, symbols, tick_limit=10000, return_results=False):
+    async def watch_trades(queue: asyncio.Queue, symbols, tick_limit=10000, return_results=False, market='spot'):
         trades = []
         i = 0
         while True:
@@ -122,13 +133,15 @@ async def main():
             if i > tick_limit:
                 break
             try:
-                current_trades_raw = await exchange.watch_trades_for_symbols(symbols)
+                current_trades_raw = await spot_exchange.watch_trades_for_symbols(symbols)
+                # print(current_trades_raw)
                 current_trades = list(map(lambda t: Trade(
                     t['symbol'].split(':')[0].replace('/', '-'),
                     t['timestamp'],
                     round(t['amount'] * t['price'], 2),
                     t['price'],
-                    t['side'] == 'buy'
+                    t['side'] == 'buy',
+                    market,
                 ), current_trades_raw))
 
                 for trade in current_trades:
@@ -138,7 +151,7 @@ async def main():
                 
             except Exception as e:
                 print(e)
-                await exchange.close()
+                await spot_exchange.close()
 
         return trades
 
@@ -208,12 +221,12 @@ async def main():
         run_symbols = [eth, btc]
         await gather(
             # order_book_loop(run_symbols, 1_000_000, 2000, 10),
-            trade_loop(run_symbols, 1_000_000, 2000),
+            trade_loop(run_symbols, 1_000, 200),
         )
     except Exception as e:
         print(e)
 
-    await exchange.close()
+    await spot_exchange.close()
 
 run(main())
 
