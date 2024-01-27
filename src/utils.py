@@ -10,9 +10,11 @@ from dataclasses import asdict
 from sys import argv
 import gc
 
+from dotenv import dotenv_values
 import boto3
 
-sqs = boto3.client('sqs')
+config = dotenv_values('./src/.env')
+sqs = boto3.client('sqs', region_name=config['AWS_REGION'])
 
 def table(values):
     first = values[0]
