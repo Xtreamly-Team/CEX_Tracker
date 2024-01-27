@@ -13,7 +13,6 @@ from copy import copy, deepcopy
 from dotenv import dotenv_values
 
 config = dotenv_values('./src/.env')
-print(config)
 
 async def main():
 
@@ -206,7 +205,8 @@ async def main():
     try:
         run_symbols = [eth, btc]
         await gather(
-            order_book_loop(run_symbols, 1_000, 200, 10),
+            order_book_loop(run_symbols, 1_000_000, 2000, 10),
+            trade_loop(run_symbols, 1_000_000, 2000),
         )
     except Exception as e:
         print(e)
