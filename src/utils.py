@@ -1,4 +1,3 @@
-from _typeshed import DataclassInstance
 import json
 import tailer
 import io
@@ -156,8 +155,8 @@ def write_n_rows_csv(file_path: str, rows: int, from_end=False):
     print(save_path)
     df.to_csv(save_path, header=True)
 
-def send_to_db_sqs(db_sqs_url: str, db_collection: str, object: List[DataclassInstance]):
-    database_wrapped = [{'Collection': db_collection, 'jsonDocument': json.dumps(asdict(obj))} for obj in object ]
+def send_to_db_sqs(db_sqs_url: str, db_collection: str, object_list: List):
+    database_wrapped = [{'Collection': db_collection, 'jsonDocument': json.dumps(asdict(obj))} for obj in object_list ]
     message = json.dumps(database_wrapped)
     response = sqs.send_message(
         QueueUrl=db_sqs_url,
@@ -168,4 +167,3 @@ def send_to_db_sqs(db_sqs_url: str, db_collection: str, object: List[DataclassIn
 
 if __name__ == '__main__':
     join_rows_into_single_csv(argv[1:-1], argv[-1])
-
