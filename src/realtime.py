@@ -55,8 +55,6 @@ async def main():
         exchange = spot_exchange
         if market == 'future':
             exchange = future_exchange
-        else:
-            raise Exception('Invalid market type')
 
         while last_trade_timestamp < until:
             each_step = 1000
@@ -85,8 +83,6 @@ async def main():
         exchange = spot_exchange
         if market == 'future':
             exchange = future_exchange
-        else:
-            raise Exception('Invalid market type')
         order_books = []
         i = 0
         while True:
@@ -102,12 +98,10 @@ async def main():
 
         return order_books
 
-    async def watch_orderbooks(queue: asyncio.Queue, symbols, depth: int, market='spot', tick_limit: int=10000, return_results=False):
+    async def watch_orderbooks(queue: asyncio.Queue, symbols, market='spot', depth: int=10, tick_limit: int=10000, return_results=False):
         exchange = spot_exchange
         if market == 'future':
             exchange = future_exchange
-        else:
-            raise Exception('Invalid market type')
         order_books: List[Orderbook] = []
         i = 0
         while True:
@@ -118,7 +112,8 @@ async def main():
             try:
                 raw_order_book = await spot_exchange.watch_order_book_for_symbols(symbols, depth)
 
-                order_book = Orderbook(raw_order_book['symbol'].split(':')[0], raw_order_book['timestamp'],
+                order_book = Orderbook(raw_order_book['symbol'].split(':')[0].replace('/', '-'),
+                                       raw_order_book['timestamp'],
                                        list(map(lambda o: (o[0], round(o[1] * o[0], 2)), raw_order_book['asks'])),
                                        list(map(lambda o: (o[0], round(o[1] * o[0], 2)), raw_order_book['bids'])),
                                        market,
@@ -137,8 +132,6 @@ async def main():
         exchange = spot_exchange
         if market == 'future':
             exchange = future_exchange
-        else:
-            raise Exception('Invalid market type')
         i = 0
         while True:
             i += 1
@@ -172,7 +165,7 @@ async def main():
     async def trade_loop(symbols: List[str], market='spot', tick_num: int=10000, min_save_step=1000):
         trades_queue = asyncio.Queue()
         async def get_trades():
-            await watch_trades(trades_queue, symbols, tick_num, market=market)
+            await watch_trades(trades_queue, symbols, market, tick_num)
 
         async def save_trades():
             total_got = 0
@@ -200,7 +193,7 @@ async def main():
         orderbook_queue = asyncio.Queue()
         async def get_orderbooks():
             while True:
-                await watch_orderbooks(orderbook_queue, symbols, depth, tick_num, market=market)
+                await watch_orderbooks(orderbook_queue, symbols, market, depth, tick_num)
 
         async def save_orderbooks():
             total_got = 0
@@ -216,7 +209,8 @@ async def main():
                     print(orderbook_queue.qsize())
                     try:
                         # write_orderbooks_to_csv(f'data/orderbooks/orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
-                        write_orderbooks_to_csv_with_panda(f'./data/orderbooks/{"-".join(get_symbol_quotes(symbols))}_orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
+                        send_to_db_sqs(db_queue_url, db_collection, batch)
+                        # write_orderbooks_to_csv_with_panda(f'./data/orderbooks/{"-".join(get_symbol_quotes(symbols))}_orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
                         del batch
 
                     except Exception as e:
@@ -234,8 +228,8 @@ async def main():
         run_symbols = [eth, btc]
 
         await gather(
-            order_book_loop(run_symbols, 'spot', 1_000, 200, 10),
-            trade_loop(run_symbols, 'spot', 1_000, 200),
+            order_book_loop(run_symbols, 'spot', 1_000, 20, 100),
+            trade_loop(run_symbols, 'spot', 1_000, 20),
         )
 
     except Exception as e:
