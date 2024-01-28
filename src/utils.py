@@ -1,3 +1,4 @@
+from _typeshed import DataclassInstance
 import json
 import tailer
 import io
@@ -155,8 +156,8 @@ def write_n_rows_csv(file_path: str, rows: int, from_end=False):
     print(save_path)
     df.to_csv(save_path, header=True)
 
-def send_trades_to_db_sqs(db_sqs_url: str, db_collection: str, trades: List[Trade]):
-    database_wrapped = [{'Collection': db_collection, 'jsonDocument': json.dumps(asdict(trade))} for trade in trades ]
+def send_to_db_sqs(db_sqs_url: str, db_collection: str, object: List[DataclassInstance]):
+    database_wrapped = [{'Collection': db_collection, 'jsonDocument': json.dumps(asdict(obj))} for obj in object ]
     message = json.dumps(database_wrapped)
     response = sqs.send_message(
         QueueUrl=db_sqs_url,
@@ -164,7 +165,6 @@ def send_trades_to_db_sqs(db_sqs_url: str, db_collection: str, trades: List[Trad
         MessageGroupId=db_collection,
     )
     print(response)
-
 
 if __name__ == '__main__':
     join_rows_into_single_csv(argv[1:-1], argv[-1])

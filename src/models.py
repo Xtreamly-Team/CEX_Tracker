@@ -27,3 +27,4 @@ class Orderbook:
     timestamp: int
     asks: List[Tuple[float, float]]
     bids: List[Tuple[float, float]]
+    market: str
