@@ -1,0 +1,5 @@
+services:
+  cex_tracker:
+    build: .
+    # ports:
+    #   - "4343:4343"

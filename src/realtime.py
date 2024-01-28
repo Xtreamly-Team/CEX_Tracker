@@ -14,7 +14,8 @@ from dotenv import dotenv_values
 
 config = dotenv_values('./src/.env')
 db_queue_url = config['SQS_URL']
-db_collection = config['DB_COLLECTION']
+trade_db_collection = config['TRADE_DB_COLLECTION']
+orderbook_db_collection = config['ORDERBOOK_DB_COLLECTION']
 
 async def main():
 
@@ -179,7 +180,7 @@ async def main():
                     # This should return close to 0
                     print('Batch size to write', len(batch))
                     
-                    send_to_db_sqs(db_queue_url, db_collection, batch)
+                    send_to_db_sqs(db_queue_url, trade_db_collection, batch)
                     # write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
                     total_got += batch_size
 
@@ -209,7 +210,7 @@ async def main():
                     print(orderbook_queue.qsize())
                     try:
                         # write_orderbooks_to_csv(f'data/orderbooks/orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
-                        send_to_db_sqs(db_queue_url, db_collection, batch)
+                        send_to_db_sqs(db_queue_url, orderbook_db_collection, batch)
                         # write_orderbooks_to_csv_with_panda(f'./data/orderbooks/{"-".join(get_symbol_quotes(symbols))}_orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
                         del batch
 
