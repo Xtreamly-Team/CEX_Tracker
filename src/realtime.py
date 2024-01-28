@@ -229,8 +229,8 @@ async def main():
         run_symbols = [eth, btc]
 
         await gather(
-            order_book_loop(run_symbols, 'spot', 1_000, 20, 100),
-            trade_loop(run_symbols, 'spot', 1_000, 20),
+            order_book_loop(run_symbols, 'spot', 1_000_000, 20, 100),
+            trade_loop(run_symbols, 'spot', 1_000_000, 20),
         )
 
     except Exception as e:
