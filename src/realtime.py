@@ -178,7 +178,7 @@ async def main():
                     while not trades_queue.empty():
                         batch.append(await trades_queue.get())
                     # This should return close to 0
-                    print('Batch size to write', len(batch))
+                    print('Trade Batch size to write', len(batch))
                     
                     send_to_db_sqs(db_queue_url, trade_db_collection, batch)
                     # write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
@@ -207,9 +207,8 @@ async def main():
                     while not orderbook_queue.empty():
                         batch.append(await orderbook_queue.get())
                     # This should return close to 0
-                    print(orderbook_queue.qsize())
+                    print('Trade Batch size to write', len(batch))
                     try:
-                        # write_orderbooks_to_csv(f'data/orderbooks/orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
                         send_to_db_sqs(db_queue_url, orderbook_db_collection, batch)
                         # write_orderbooks_to_csv_with_panda(f'./data/orderbooks/{"-".join(get_symbol_quotes(symbols))}_orderbooks_{total_got + 1}_{total_got + batch_size}.csv', batch)
                         del batch
@@ -229,8 +228,8 @@ async def main():
         run_symbols = [eth, btc]
 
         await gather(
-            order_book_loop(run_symbols, 'spot', 10_000_000, 20, 100),
-            trade_loop(run_symbols, 'spot', 10_000_000, 20),
+            order_book_loop(run_symbols, 'spot', 100_000_000, 5, 100),
+            trade_loop(run_symbols, 'spot', 1_000_000_000, 10),
         )
 
     except Exception as e:
