@@ -1,6 +1,7 @@
 import asyncio
+import sys
 import gc
-from typing import List
+from typing import List, no_type_check
 import ccxt.pro as ccxt
 
 from asyncio import run, gather, sleep
@@ -15,7 +16,7 @@ from dotenv import dotenv_values
 
 config = dotenv_values('./src/.env')
 db_queue_url = config['SQS_URL']
-trade_db_collection = config['TRADE_DB_COLLECTION']
+trade_db_collection = config['TEST_DB_COLLECTION']
 orderbook_db_collection = config['ORDERBOOK_DB_COLLECTION']
 
 async def main():
@@ -51,106 +52,40 @@ async def main():
     async def get_formatted_time():
         return spot_exchange.iso8601(spot_exchange.milliseconds())
 
-    async def get_trades(symbol: str, since: int, until: int, step: int=1000, market='spot'):
+    async def get_trades(symbol: str, since: int, until: int, api_step: int=1000, market='spot', save_step=100, api_sleep_ms=1000, db_sleep_ms = 10):
         last_trade_timestamp = since
-        all_trades = []
+        not_saved_trades = []
+        this_step_trades = []
         exchange = spot_exchange
         if market == 'future':
             exchange = future_exchange
 
         while last_trade_timestamp < until:
-            each_step = step
-            raw_trades = await exchange.fetch_trades(symbol, last_trade_timestamp, each_step, params={'until': until})
-            if len(raw_trades):
+            await asyncio.sleep(api_sleep_ms / 1000)
+            raw_trades = await exchange.fetch_trades(symbol, last_trade_timestamp, api_step, params={'until': until})
+            print(f"Got {len(raw_trades)} trades from api")
+            not_saved_trades = [*list(map(lambda t: Trade(
+                symbol,
+                t['timestamp'],
+                t['amount'],
+                t['price'],
+                t['side'] == 'buy',
+                market
+            ), raw_trades))]
+            if len(not_saved_trades):
                 last_trade_timestamp = raw_trades[len(raw_trades) - 1]['timestamp'] + 1
-                all_trades += raw_trades
+                while len(not_saved_trades):
+
+                    batch = not_saved_trades[0:min(save_step, len(not_saved_trades))]
+                    print(f"Sending {len(batch)} to sqs")
+                    res = send_to_db_sqs(db_queue_url, trade_db_collection, batch)
+                    if len(not_saved_trades) > save_step:
+                        not_saved_trades = not_saved_trades[save_step:]
+                    else:
+                        not_saved_trades = []
+
             else:
                 break
-
-        all_trades = list(map(lambda t: Trade(
-            symbol,
-            t['timestamp'],
-            t['amount'],
-            t['price'],
-            t['side'] == 'buy',
-            market
-        ), all_trades))
-        return all_trades
-
-    # def get_trades(symbol: str, trades_raw: List, market='spot'):
-    #     all_trades = list(map(lambda t: Trade(
-    #         symbol,
-    #         t['timestamp'],
-    #         t['amount'],
-    #         t['price'],
-    #         t['side'] == 'buy',
-    #         market
-    #     ), trades_raw))
-    #     return all_trades
-
-
-    async def watch_trades(queue: asyncio.Queue, symbols, market='spot', tick_limit=10000, return_results=False):
-        trades = []
-        exchange = spot_exchange
-        if market == 'future':
-            exchange = future_exchange
-        i = 0
-        while True:
-            i += 1
-            # print(i)
-            if i > tick_limit:
-                break
-            try:
-                current_trades_raw = await exchange.watch_trades_for_symbols(symbols)
-                # print(current_trades_raw)
-                current_trades = list(map(lambda t: Trade(
-                    t['symbol'].split(':')[0].replace('/', '-'),
-                    t['timestamp'],
-                    round(t['amount'] * t['price'], 2),
-                    t['price'],
-                    t['side'] == 'buy',
-                    market,
-                ), current_trades_raw))
-
-                for trade in current_trades:
-                    await queue.put(trade)
-                if return_results:
-                    trades = [* trades, *current_trades]
-                
-            except Exception as e:
-                print(e)
-                await spot_exchange.close()
-
-        return trades
-
-
-    async def trade_loop(symbols: List[str], market='spot', tick_num: int=10000, min_save_step=1000):
-        trades_queue = asyncio.Queue()
-        async def get_trades():
-            await watch_trades(trades_queue, symbols, market, tick_num)
-
-        async def save_trades():
-            total_got = 0
-            while True:
-                await asyncio.sleep(min_save_step / 10)
-                batch_size = trades_queue.qsize()
-                if batch_size >= min_save_step:
-                    batch: List[Trade] = []
-                    while not trades_queue.empty():
-                        batch.append(await trades_queue.get())
-                    # This should return close to 0
-                    print('Trade Batch size to write', len(batch))
-                    
-                    send_to_db_sqs(db_queue_url, trade_db_collection, batch)
-                    # write_trades_to_csv(f'./data/trades/{"-".join(get_symbol_quotes(symbols))}_trades_{total_got + 1}_{total_got + batch_size}.csv', batch)
-                    total_got += batch_size
-
-                if total_got >= tick_num:
-                    print("Finished saving trades")
-                    break
-
-        await gather(get_trades(), save_trades())
-
 
     try:
         run_symbols = [eth, btc]
@@ -159,13 +94,7 @@ async def main():
         end = start + 1 * 60 * 1000
         print(current_time)
 
-        trades = await get_trades(eth, start, end)
-        pprint(len(trades))
-        send_to_db_sqs(db_queue_url, trade_db_collection, trades)
-
-        # await gather(
-        #     trade_loop(run_symbols, 'spot', 1_000_000_000, 10),
-        # )
+        await get_trades(eth, start, end, save_step=50)
 
     except Exception as e:
         print(e)
