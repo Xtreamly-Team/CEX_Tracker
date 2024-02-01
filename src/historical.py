@@ -41,6 +41,7 @@ async def main():
 
 
     eth = 'ETH/USDT'
+    eth_usdc = 'ETH/USDC'
     btc = 'BTC/USDT'
 
     def format_symbol_quotes(symbols):
@@ -53,6 +54,7 @@ async def main():
         return spot_exchange.iso8601(spot_exchange.milliseconds())
 
     async def get_trades(symbol: str, since: int, until: int, api_step: int=1000, market='spot', save_step=100, api_sleep_ms=1000, db_sleep_ms = 10):
+        total_number_got = 0
         last_trade_timestamp = since
         not_saved_trades = []
         this_step_trades = []
@@ -63,7 +65,8 @@ async def main():
         while last_trade_timestamp < until:
             await asyncio.sleep(api_sleep_ms / 1000)
             raw_trades = await exchange.fetch_trades(symbol, last_trade_timestamp, api_step, params={'until': until})
-            print(f"Got {len(raw_trades)} trades from api")
+            print(f"Got {len(raw_trades)} trades starting from {last_trade_timestamp}")
+            total_number_got += len(raw_trades)
             not_saved_trades = [*list(map(lambda t: Trade(
                 symbol,
                 t['timestamp'],
@@ -87,14 +90,18 @@ async def main():
             else:
                 break
 
+        return total_number_got
+
     try:
         run_symbols = [eth, btc]
         current_time = await get_time()
-        start = current_time - 3 * 86400 * 1000
-        end = start + 1 * 60 * 1000
+        start = current_time - int(0.5 * 86400 * 1000)
+        end = start + 1 * 86400 * 1000
         print(current_time)
 
-        await get_trades(eth, start, end, save_step=50)
+        print(f"Getting from {start} to {end}")
+        await get_trades(eth, start, end, api_sleep_ms=5000, save_step=50)
+        print(f"Got from {start} to {end}")
 
     except Exception as e:
         print(e)
