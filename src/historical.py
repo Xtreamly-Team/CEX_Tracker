@@ -93,15 +93,17 @@ async def main():
         return total_number_got
 
     try:
-        run_symbols = [eth, btc]
+        run_symbols = [eth, eth_usdc, btc]
         current_time = await get_time()
         start = current_time - int(0.5 * 86400 * 1000)
-        end = start + 1 * 86400 * 1000
+        # end = start + 10 * 86400 * 1000
+        end = current_time
         print(current_time)
 
-        print(f"Getting from {start} to {end}")
-        await get_trades(eth, start, end, api_sleep_ms=5000, save_step=50)
-        print(f"Got from {start} to {end}")
+        print(f"Getting from {start} to ${end}")
+        total_got = await get_trades(eth, start, end, api_sleep_ms=5000, save_step=50)
+        print(f"Got {total_got} from {start} to ${end}")
+        print(await get_time())
 
     except Exception as e:
         print(e)
